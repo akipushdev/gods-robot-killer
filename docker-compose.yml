@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  gods-robot-killer:
+    image: nginx:alpine
+    container_name: gods-robot-killer
+    restart: unless-stopped
+    ports:
+      - "8765:80"
+    volumes:
+      - ./:/usr/share/nginx/html:ro

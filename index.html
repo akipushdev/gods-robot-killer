@@ -1,0 +1,323 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>body{margin:0}[hidden]{display:none!important}</style></head><body><meta charset="utf-8">
+<title>Gods Robot Killer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=PT+Mono&display=swap">
+<style>
+/* Один экран: игра занимает всё окно, поверх неё тонкий интерфейс в цветах самой графики. */
+:root {
+  color-scheme: dark;
+  --ink: #06121a;          /* тёмный низ леса */
+  --panel: rgba(6, 18, 26, 0.78);
+  --paper: #e6f2f4;        /* бледное небо у горизонта */
+  --teal: #368a8e;         /* дальний лес */
+  --ember: #e0702e;        /* плащ героя */
+  --dusk: #8e245d;         /* верх неба */
+  --line: rgba(230, 242, 244, 0.22);
+  --display: "Russo One", "Arial Black", Impact, sans-serif;
+  --mono: "PT Mono", "Consolas", "Menlo", monospace;
+}
+[hidden] { display: none !important; }   /* v244: своё, не только из обёртки публикации (для редактора и будущей скачиваемой версии) */
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--paper); font-family: var(--mono); font-size: 14px; overflow: hidden; }
+#stage { position: relative; width: 100%; height: 100%; }
+#game { display: block; width: 100%; height: 100%; outline: none; touch-action: none; image-rendering: pixelated; image-rendering: crisp-edges; }
+
+.hud { position: absolute; left: 16px; right: 16px; top: 12px; display: flex; flex-wrap: wrap; gap: 8px 18px; align-items: center; pointer-events: none; }
+#hp { display: flex; gap: 5px; }
+#hp i { width: 16px; height: 16px; transform: rotate(45deg); border: 2px solid var(--ink); background: rgba(6, 18, 26, 0.55); }
+#kunai { display: flex; gap: 7px; align-items: center; }
+#kunai i { width: 26px; height: 9px; background: rgba(6, 18, 26, 0.5); clip-path: polygon(0 50%, 34% 0, 100% 34%, 100% 66%, 34% 100%); }
+#kunai i.on { background: var(--paper); filter: drop-shadow(0 0 1px var(--ink)); }
+@keyframes hpHit { 0% { transform: translateX(0) scale(1.5); filter: brightness(2.2); } 20% { transform: translateX(-5px) scale(1.3); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 100% { transform: none; filter: none; } }
+#hp.hit { animation: hpHit 0.55s ease-out; }
+#hp i.arm { transform: none; width: 14px; height: 17px; margin-left: 3px; background: #aebccc; border-color: #1e2630; border-radius: 2px 2px 8px 8px; box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.55) inset; }
+#hp i.on { background: var(--ember); box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35) inset; }
+.stat { background: var(--panel); border: 1px solid var(--line); padding: 4px 9px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.stat b { font-family: var(--display); font-weight: 400; color: var(--ember); margin-left: 6px; }
+.hud .grow { flex: 1 1 0; min-width: 0; }
+.inv { display: flex; gap: 7px; align-items: center; padding: 3px 9px; }
+.inv[hidden] { display: none; }
+.inv i { display: flex; align-items: center; gap: 3px; font-style: normal; }
+.inv svg { width: 14px; height: 22px; display: block; }
+.inv em { font-style: normal; font-family: var(--display); color: var(--ember); }
+.inv i.pop { animation: invPop 0.6s ease-out; }
+@keyframes invPop { 0% { transform: translateY(14px) scale(2.2); opacity: 0; } 55% { transform: translateY(-3px) scale(1.25); opacity: 1; } 100% { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .inv i.pop { animation: none; } }
+
+#combo { position: absolute; left: 50%; top: 22%; max-width: calc(100% - 32px); transform: translate(-50%, 8px); font-family: var(--display); font-size: clamp(18px, 3.2vw, 30px); color: var(--paper); text-shadow: 0 2px 0 var(--dusk), 0 0 18px rgba(0, 0, 0, 0.6); opacity: 0; transition: opacity 0.15s, transform 0.15s; pointer-events: none; white-space: nowrap; }
+#banner { position: absolute; left: 0; right: 0; top: 38%; text-align: center; font-family: var(--display); font-size: clamp(30px, 7vw, 64px); color: var(--paper); text-shadow: 0 4px 0 var(--ink); pointer-events: none; padding-inline: 16px; }
+#combo.show { opacity: 1; transform: translate(-50%, 0); }
+
+#items { position: absolute; left: 50%; transform: translateX(-50%); bottom: 40px; display: flex; gap: 6px; pointer-events: auto; }
+#items[hidden] { display: none; }
+#items .item { position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgba(20, 14, 22, 0.78); border: 2px solid #c9a24a; box-shadow: inset 0 0 0 2px rgba(0,0,0,0.6); outline: none; }
+#items .item svg { width: 34px; height: auto; image-rendering: pixelated; display: block; }
+#items .item em { position: absolute; right: 2px; bottom: 0; font-style: normal; font-size: 12px; color: #fff4e1; text-shadow: 0 1px 0 #000; }
+#items .tip { display: none; position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); width: 240px; padding: 8px 10px; background: rgba(20, 14, 22, 0.94); border: 2px solid #c9a24a; color: #e8e0d0; font-size: 13px; line-height: 1.35; text-align: left; pointer-events: none; }
+#items .tip b { display: block; color: #ffe08a; margin-bottom: 4px; font-size: 14px; }
+#items .item:hover .tip, #items .item:focus .tip { display: block; }
+#fch { display: flex; gap: 4px; }
+.talplate { position: relative; cursor: pointer; pointer-events: auto; outline: none; }
+.talplate[hidden] { display: none; }
+.talplate:hover img, .talplate:focus img { filter: brightness(1.25); }
+.talplate b { position: absolute; right: -3px; bottom: -5px; font-family: var(--display); font-weight: 400; color: var(--ember); font-size: 15px; text-shadow: 0 1px 0 #000, 0 0 3px #000; }
+.talplate .tkey { position: absolute; left: -2px; top: -5px; font-size: 10px; line-height: 12px; padding: 0 3px; color: #ffe08a; background: rgba(20,14,22,0.9); border: 1px solid #c9a24a; border-radius: 2px; }
+#fch[hidden] { display: none; }
+#fch i { position: relative; width: 9px; height: 18px; background: rgba(20,14,22,0.8); border: 2px solid #dfe6ea; display: block; }
+#fch i b { position: absolute; left: 0; right: 0; bottom: 0; background: #ffffff; display: block; }
+#hint { position: absolute; left: 16px; right: 16px; bottom: 12px; text-align: center; color: var(--paper); opacity: 0.8; letter-spacing: 0.03em; pointer-events: none; text-shadow: 0 1px 0 var(--ink); }
+#help { position: absolute; left: 16px; bottom: 42px; background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; max-width: min(420px, calc(100% - 32px)); line-height: 1.55; }
+#combos { position: absolute; right: 16px; top: 84px; background: var(--panel); border: 1px solid var(--line); padding: 10px 12px; max-width: min(460px, calc(100% - 32px)); max-height: calc(100% - 140px); overflow-y: auto; line-height: 1.5; z-index: 5; }
+#combos p { margin: 8px 0 0; opacity: 0.8; }
+#combosBtn, #plogBtn, #musicBtn, #testBtn, #mapsBtn, #edBackBtn { cursor: pointer; pointer-events: auto; }
+#startEdBtn { font: 14px 'PT Mono', monospace; letter-spacing: 0.08em; color: var(--ember); background: rgba(6, 18, 26, 0.75); border: 1px solid var(--ember); padding: 8px 22px; cursor: pointer; }
+#startEdBtn:hover { background: rgba(224, 112, 46, 0.16); }
+#edBackBtn { border-color: var(--ember); color: var(--ember); }
+#edBackBtn[hidden] { display: none; }
+#mapsBtn .key { margin: 0 4px 0 0; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; }
+#mapsBtn.act { border-color: var(--ember); }
+#maps { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); max-height: calc(100% - 120px); overflow-y: auto; background: rgba(8, 16, 24, 0.95); border: 1px solid var(--line); padding: 10px 12px; z-index: 6; }
+#maps h2 { font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin: 10px 0 6px; color: var(--teal); }
+#maps h2:first-child { margin-top: 0; }
+#maps p { margin: 0 0 8px; opacity: 0.85; line-height: 1.45; }
+#maps .row { display: flex; gap: 8px; align-items: center; margin: 6px 0; flex-wrap: wrap; }
+#maps button { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.55); border: 1px solid var(--line); padding: 5px 12px; cursor: pointer; }
+#maps button:hover:not(:disabled) { border-color: var(--ember); }
+#maps button:disabled { opacity: 0.5; cursor: progress; }
+#maps input { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 5px 8px; flex: 1 1 200px; min-width: 0; }
+#maps .mrow { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+#maps .mname { color: var(--ember); min-width: 0; overflow-wrap: anywhere; }
+#maps .minfo { flex: 1 1 160px; opacity: 0.75; font-size: 12px; min-width: 0; }
+#mapsMsg { opacity: 0.9; min-height: 1.2em; }
+#testBtn.on { color: #ffce46; border-color: #ffce46; }
+#musicBtn .key { margin: 0 4px 0 0; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; }
+#musicBtn.off { opacity: 0.55; }
+#plogBtn .key { margin: 0 4px 0 0; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; }
+#plogBtn.act { border-color: var(--ember); }
+#plog { position: absolute; left: 50%; top: 84px; transform: translateX(-50%); width: min(640px, calc(100% - 32px)); background: rgba(8, 16, 24, 0.95); border: 1px solid var(--line); padding: 10px 12px; z-index: 6; }
+#plog h2 { font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 6px; color: var(--teal); }
+#plog p { margin: 0 0 8px; opacity: 0.85; line-height: 1.45; }
+#plog textarea { width: 100%; height: min(44vh, 320px); box-sizing: border-box; background: rgba(6, 18, 26, 0.75); color: inherit; border: 1px solid var(--line); font: inherit; font-size: 12px; padding: 6px; resize: vertical; }
+#plog .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+#plog button { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.55); border: 1px solid var(--line); padding: 5px 12px; cursor: pointer; }
+#plog button:hover { border-color: var(--ember); }
+#plogMsg { opacity: 0.85; }
+#combosBtn .key { margin: 0 4px 0 0; padding: 0 5px; border: 1px solid currentColor; border-radius: 3px; }
+#combosBtn.act { border-color: var(--ember); }
+#help h2, #combos h2 { font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 0 6px; color: var(--teal); }
+#help dl, #combos dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 1px 12px; }
+#help dt, #combos dt { color: var(--ember); white-space: nowrap; }
+#help dd, #combos dd { margin: 0; min-width: 0; }
+
+.overlay { position: absolute; inset: 0; display: flex; align-items: safe center; overflow-y: auto; padding-block: 16px; justify-content: center; padding-inline: 16px; background: linear-gradient(180deg, rgba(142, 36, 93, 0.72), rgba(6, 18, 26, 0.9) 70%); }
+.card { max-width: 560px; width: 100%; text-align: left; margin: auto 0; }
+@media (max-height: 560px) { #start .card p, #start .card .keys { display: none; } }
+.card h1.logo { margin: 0 0 10px; line-height: 0; text-shadow: none; } .card h1.logo img { width: min(1040px, 94vw); max-width: none; max-height: 46vh; object-fit: contain; height: auto; image-rendering: pixelated; display: block; position: relative; left: 50%; transform: translateX(-50%); }
+.card h1 { font-family: var(--display); font-weight: 400; font-size: clamp(34px, 8vw, 68px); line-height: 0.95; margin: 0 0 10px; letter-spacing: 0.01em; text-wrap: balance; text-shadow: 0 4px 0 var(--ink); }
+.card p { margin: 0 0 18px; line-height: 1.6; max-width: 52ch; }
+.card .keys { display: grid; grid-template-columns: auto 1fr; gap: 3px 14px; margin: 0 0 22px; }
+.card .keys dt { color: var(--ember); white-space: nowrap; }
+.card .keys dd { margin: 0; min-width: 0; }
+button.go { font-family: var(--display); font-size: 18px; letter-spacing: 0.06em; color: var(--ink); background: var(--ember); border: 0; padding: 12px 26px; cursor: pointer; box-shadow: 5px 5px 0 var(--ink); }
+button.go:hover { background: #f08a48; }
+button.go:focus-visible { outline: 3px solid var(--paper); outline-offset: 3px; }
+button.go:disabled { background: var(--teal); cursor: progress; }
+
+#touch { position: absolute; left: 0; right: 0; bottom: 0; display: none; justify-content: space-between; align-items: flex-end; gap: 8px; padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+#touch .grp { display: grid; grid-template-columns: repeat(3, 52px); gap: 6px; pointer-events: auto; }
+#touch button { height: 52px; font-family: var(--display); font-size: 15px; color: var(--paper); background: var(--panel); border: 1px solid var(--line); touch-action: none; user-select: none; -webkit-user-select: none; }
+#touch button.down { background: var(--ember); color: var(--ink); }
+@media (pointer: coarse) { #touch { display: flex; } #help, #hint { display: none; } }
+
+/* кнопки и полоски HUD с листов автора: картинка на состояние, крупным пикселем */
+button.pbtn { width: 234px; height: 90px; border: 0; padding: 0; background: transparent no-repeat 0 0 / 936px 90px; image-rendering: pixelated; cursor: pointer; font-size: 0; color: transparent; display: inline-block; margin: 0 6px; outline: none; }
+button.pbtn:hover:not(:disabled), button.pbtn:focus-visible { background-position: -234px 0; }
+button.pbtn:active:not(:disabled) { background-position: -468px 0; }
+button.pbtn:disabled { background-position: -702px 0; cursor: progress; }
+#startBtn { background-image: url(tex/ui/start_sheet.png?v=313); }
+#exitBtn { background-image: url(tex/ui/exit_sheet.png?v=313); }
+.hudbar { height: 42px; width: auto; image-rendering: pixelated; display: block; }
+#hp, #kunai, #fch { display: flex; align-items: center; gap: 4px; }
+#hp i.arm { transform: none; width: 14px; height: 17px; margin-left: 3px; background: #aebccc; border: 2px solid #1e2630; border-radius: 2px 2px 8px 8px; }
+#fch em { font-style: normal; color: #8fe8ff; font-family: var(--display); }
+</style>
+
+<div id="stage">
+  <canvas id="game" tabindex="0" aria-label="Игровое поле"></canvas>
+
+  <div class="hud">
+    <div id="hp" aria-label="Здоровье"></div>
+    <div id="kunai" aria-label="Кунаи"></div>
+    <div id="fch" aria-label="Заряды вилки" hidden></div>
+    <div id="talBtn" class="talplate" role="button" tabindex="0" title="Таланты героя (B)"><img class="hudbar" alt="Таланты" src="tex/ui/tal.png?v=313"><b id="cogs">0</b><span class="tkey">B</span></div>
+    <div id="talWpn" class="talplate" role="button" tabindex="0" hidden><img class="hudbar" alt="Таланты оружия" src="tex/ui/tal_knife.png?v=313"></div>
+    <div class="stat">уровень<b id="lvl">1</b></div>
+    <div class="stat">высота<b id="alt">0</b></div>
+    <div class="stat">сторона<b id="side">Юг</b></div>
+    <div class="stat">роботы<b id="bots">0</b></div>
+    <div class="stat">осколки<b id="bits">0 / 0</b></div>
+    <div class="stat inv" id="keys" aria-label="Ключи и нож" hidden></div>
+    <div class="stat">до облавы<b id="alarm">6:00</b></div>
+    <div class="grow"></div>
+    <div class="stat" id="combosBtn" role="button" tabindex="0"><b class="key">O</b> комбо</div>
+    <div class="stat" id="plogBtn" role="button" tabindex="0"><b class="key">P</b> журнал</div>
+    <div class="stat" id="mapsBtn" role="button" tabindex="0"><b class="key">U</b> карты</div>
+    <div class="stat" id="edBackBtn" role="button" tabindex="0" hidden>◀ редактор</div>
+    <div class="stat" id="testBtn" role="button" tabindex="0"><b class="key">T</b> тест</div>
+    <div class="stat" id="musicBtn" role="button" tabindex="0"><b class="key">N</b> <span>музыка</span></div>
+    <div class="stat" id="mute">звук вкл</div>
+    <div class="stat" id="padBtn" role="button" tabindex="0" hidden>🎮 геймпад</div>
+  </div>
+
+  <div id="combo"></div>
+
+  <div id="items" aria-label="Предметы" hidden></div>
+  <div id="hint">A / D идти · Пробел прыжок · Q / E поворот мира · J K L удары · H крюк · O комбо · I все клавиши</div>
+  <div id="plog" hidden>
+    <h2>Журнал игры</h2>
+    <p>Здесь записано, что происходило: смерти и их причины, урон, приёмы, перехваты, время по ярусам. Скопируйте текст и вставьте в чат — по нему правится баланс.</p>
+    <textarea id="plogText" readonly spellcheck="false"></textarea>
+    <div class="row"><button id="plogCopy" type="button">Скопировать</button><button id="plogClear" type="button">Очистить</button><span id="plogMsg"></span></div>
+  </div>
+  <div id="maps" hidden>
+    <h2>Карты</h2>
+    <p id="mapsCur"></p>
+    <div class="row"><button id="mapsFileSave" type="button">Сохранить в файл (Ctrl+S)</button><button id="mapsFileOpen" type="button">Открыть файл (Ctrl+O)</button><button id="mapsEditor" type="button">Открыть в редакторе</button></div>
+    <div id="mapsShared" hidden>
+      <h2>Общие карты</h2>
+      <div class="row" id="mapsSaveRow" hidden><input id="mapsName" type="text" maxlength="80" placeholder="Название карты" autocomplete="off"><button id="mapsSave" type="button">Сохранить в общие</button></div>
+    </div>
+    <div id="mapsList"></div>
+    <p id="mapsMsg"></p>
+  </div>
+  <div id="combos" hidden>
+    <h2>Комбо</h2>
+    <dl>
+      <dt>J J</dt><dd>два удара подряд — рукой или ножом</dd>
+      <dt>→ → J</dt><dd>рывок: без ножа — короткий, проносит мимо роботов и бьёт; с ножом — выпад, головы с плеч. Перезарядка чуть больше секунды, работает и в воздухе</dd>
+      <dt>J J K</dt><dd>с ножом, вплотную: нож, нож, нога — голова слетает, второй ногой летит в другого робота</dd>
+      <dt>L J J</dt><dd>с ножом: кунай и два ножа — герой возникает за спиной робота и срезает голову</dd>
+      <dt>F ×3</dt><dd>на плече робота или из тёмной ниши, когда он идёт мимо: вырвать шнур. Если робот мокрый — замыкание: разряд бьёт по всем мокрым роботам рядом</dd>
+      <dt>J держать</dt><dd>с Руками Прометея: через секунду — огненный шар, за ним остаётся огонь: вас он не жжёт, роботов поджигает. Второй прыжок с перчатками выше — из рук бьют струи вниз</dd>
+      <dt>F за спиной</dt><dd>ухватиться за край спины робота</dd>
+      <dt>Пробел, K</dt><dd>«велосипед»: три удара ногами в воздухе, каждый сильнее</dd>
+      <dt>S + K в воздухе</dt><dd>удар с неба: пике ногой вниз (или Пробел Пробел K)</dd>
+      <dt>W + K</dt><dd>двойной удар ногами вверх (или K W K)</dd>
+      <dt>W + K в воздухе</dt><dd>удар ногами в прыжке (или K K W)</dd>
+      <dt>W K K K</dt><dd>серия ногами с зависанием</dd>
+      <dt>S, K сидя</dt><dd>подсечка с броском куная (или S K L K)</dd>
+      <dt>Щитоносец</dt><dd>робот, над которым в кольце вертится щиток: удары в лоб отбивает и мерцает белым. Бейте со спины, сверху, телепортом («кунай и два ножа») или рвите шнур</dd>
+      <dt>K на роботе</dt><dd>топтать робота, стоя у него на голове</dd>
+      <dt>H · H H</dt><dd>крюк: притянуть робота · притянуться самому</dd>
+      <dt>F</dt><dd>когда над героем горит F — уворот кульбитом</dd>
+      <dt>F, затем L</dt><dd>увернулись вовремя и сразу L — кунай прилетает роботу в голову: большой урон и оглушение</dd>
+    </dl>
+    <p>Приёмы, убивающие сразу, приедаются: повтор того же приёма раньше чем через 35 секунд — и робот всё вернее перехватит (6 → 30 → 55 → 80%).</p>
+  </div>
+  <div id="padWiz" hidden style="position:fixed;left:50%;top:38%;transform:translate(-50%,-50%);z-index:60;background:var(--panel);border:1px solid var(--ember);padding:18px 26px;text-align:center;min-width:340px"><div id="padWizT" style="font-size:20px;margin-bottom:8px"></div><div id="padWizS" style="opacity:.75;font-size:13px"></div></div>
+  <div id="help" hidden>
+    <h2>Управление</h2>
+    <dl>
+      <dt>Геймпад</dt><dd>левый стик или крестовина — идти, вверх, присесть; A — прыжок, а когда над героем горит подсказка уворота — уворот (F); X — рука (J), Y — нога (K), B — кунай (L); LT / RT (курки) — повернуть мир; LB — крюк; правый стик вверх — тоже уворот и вырвать провод на спине робота (F); RB — взять (G); Start — эта подсказка, Back — осмотр (Z)</dd>
+      <dt>A / D</dt><dd>идти; дважды быстро нажать и держать — сразу бег (долгий шаг тоже переходит в бег)</dd>
+      <dt>Пробел</dt><dd>прыжок, держать — выше; второй прыжок в воздухе — только в Сапогах Гермеса; в Сапогах паука — Пробел у стены: толчок от неё</dd>
+      <dt>Разгон</dt><dd>бегите долго в одну сторону — скорость растёт; на разгоне робота отбрасывает дальше, в стену — кульбит, на предельной скорости — авария и минус жизнь</dd>
+      <dt>Вилка</dt><dd>лежит в ящике в одной из комнат (и в тест-режиме, T). J, J, J — три удара током, в прыжке J — удар вниз. Держать J — поток тока: 3 заряда (полоски у кунаев), ~10 секунд, перескакивает на соседних роботов. За спиной робота (можно издалека) нажать F — вилка в гнездо; держать F — выкачивать ток в заряды, отпустить — выдернуть; 5 секунд — робот обесточен. Пока вилка воткнута или идёт поток, H — крюк тащит робота у вас за спиной. Не бейте током в воде — достанется и вам</dd>
+      <dt>G</dt><dd>взять оружие, если в руках уже другое (с пустыми руками подбирается само); прежнее падает у ног</dd>
+      <dt>Z</dt><dd>осмотр титана, игра на паузе: тянуть мышью — вертеть и двигать вверх-вниз, колесо — приблизить к курсору, правая кнопка или Shift — сдвигать, Q / E — на четверть оборота, Z — назад</dd>
+      <dt>L, J, K</dt><dd>бросили кунай (L) — J: герой хватается за него и летит следом, K — пинок в того, в кого попал кунай</dd>
+      <dt>Q / E</dt><dd>повернуть мир; робот рядом остаётся рядом, но виден сбоку или со спины</dd>
+      <dt>J · K · L</dt><dd>рука, нога, кунай; жмите подряд — удары сменяются; сбоку урон ×2, в спину ×3</dd>
+      <dt>Кунаи</dt><dd>их три; летят быстро и прямо (около 8 кубов), сами доводятся на робота впереди, с W — наискось вверх. Попадание сбивает замах робота (удар, пар, выстрел) и пошатывает его. Втыкаются в робота или стену — подойдите и заберёте; кунаев не осталось — L зовёт все обратно: они летят к руке сквозь стены и режут роботов по пути</dd>
+      <dt>H</dt><dd>крюк; с зажатой W — наискось вверх. В блок или кольцо — подтянет героя; держите H — герой хватается за край блока и висит, пока не отпустите (Пробел — подтянуться). В робота: H один раз — робот подлетает к вам, H дважды быстро — вы подлетаете к роботу и виснете у него на плече</dd>
+      <dt>W у двери</dt><dd>войти: герой выходит с другой стороны ноги, мир сам поворачивается; запертой двери нужен ключ</dd>
+      <dt>мир</dt><dd>паровой клапан подбрасывает вверх · ящики разбиваются ударом или кунаем · золотые осколки собираются, каждые десять — плюс одна жизнь</dd>
+      <dt>S</dt><dd>присесть, S + J — удар сидя</dd>
+      <dt>Край платформы</dt><dd>герой цепляется сам; Пробел — подтянуться, S — отпустить</dd>
+      <dt>На роботе</dt><dd>по спине можно ходить, но через 4 секунды он стряхнёт; схватитесь за край в падении — повиснете сзади</dd>
+      <dt>F за спиной робота</dt><dd>стоите у робота за спиной — F: герой хватается за край его спины; из тёмной ниши трижды F, когда робот идёт мимо, — герой выскакивает и сразу рвёт шнур</dd>
+      <dt>Прыжок, K — «велосипед»</dt><dd>серия из трёх ударов ногами в воздухе: каждый следующий сильнее и понемногу отбрасывает робота</dd>
+      <dt>Стрелка к выходу</dt><dd>поднялись под таз — у героя появляется стрелка: она ведёт к красному ключу, а когда он взят — к лифту выхода и к двери. Если цель на другой стороне ноги, вместо стрелки показана клавиша поворота Q или E. Под тазом вокруг ноги идёт галерея с разрывами, кострами и роботами</dd>
+      <dt>Лифт перегородки</dt><dd>открыли перегородку ключом и прошли — внизу, у старта, появляется лифт с меткой цвета ключа: он довозит до этого яруса, и цепь у него не рвётся. Открыли следующую перегородку — лифт меняется и идёт выше</dd>
+      <dt>Приёмы приедаются</dt><dd>выпад, «нож, нож, нога», «кунай и два ножа» и вырванный шнур убивают сразу, но чем чаще подряд один и тот же приём, тем вернее робот перехватит героя за шею и ударит об пол; шанс растёт 6 → 30 → 55 → 80%, счёт у каждого приёма свой и остывает только со временем, на шаг за 35 секунд. Эти приёмы работают и в прыжке</dd>
+      <dt>F F F на плече</dt><dd>висите у робота на плече — трижды быстро нажмите F: с первого нажатия герой тянется к шнуру, со второго берётся за него, с третьего вырывает и кульбитом отскакивает; робот гибнет сразу</dd>
+      <dt>→ → J с ножом</dt><dd>дважды быстро в сторону и удар ножом — длинный выпад в два удара: герой проносится сквозь роботов на пути и сносит им головы</dd>
+      <dt>L J J с ножом</dt><dd>кунай и два удара ножом: если перед героем робот, герой возникает у него за спиной и двумя взмахами срезает голову</dd>
+      <dt>Пробел Пробел K</dt><dd>двойной прыжок и удар ногой: герой пикирует ногой вниз с белым шлейфом, сильно бьёт робота под собой и отскакивает от него</dd>
+      <dt>J J K с ножом</dt><dd>два удара ножом и удар ногой — герой доигрывает оба удара ножом, затем сразу бьёт ногой: первой ногой сшибает голову, второй футболит её в другого робота; работает только вплотную</dd>
+      <dt>J J</dt><dd>серия руками, продолжается при попадании</dd>
+      <dt>K в прыжке</dt><dd>удар ногами в воздухе</dd>
+      <dt>K K W · K W K</dt><dd>комбо ногами</dd>
+      <dt>W K K K · S K L K</dt><dd>ещё два комбо</dd>
+      <dt>Лестницы и трубы</dt><dd>W — лезть вверх, S — вниз (S на краю сверху — начать спуск); на концах герой сам запрыгивает или спрыгивает. Белый пар из труб обжигает</dd>
+      <dt>Роботы</dt><dd>дозорных на боковых стенах с этой стороны не видно и не достать — они покажутся, когда повернёте мир к их стене; в основном просто ходят и изредка перепрыгивают с площадки на площадку; нападают редко и только если видят героя перед собой: удар кулаком, прыжок к нему, пар или снаряд (секунду краснеет перед выстрелом). Со спины не замечают. Чем выше, тем роботы быстрее и злее: чаще отвечают ударом на удар, отскакивают, перехватывают; стоите на роботе и топчете — может сдёрнуть и ударить об землю. Лезете через кольцо мимо запертой двери — сбоку летит робот-таран и сшибает</dd>
+      <dt>Взбешённый робот</dt><dd>от любого вашего удара или крюка робот с шансом 10% взбесится: краснеет, 10 секунд неуязвим, гонится и бьёт, потом взрывается — держитесь подальше. Заманите его под струю воды — остынет и станет обычным</dd>
+      <dt>Вторая нога</dt><dd>видна сбоку (Восток / Запад); ноги соединяет таз наверху. С площадки на высоте 20 на северной стороне на вторую ногу можно перепрыгнуть</dd>
+      <dt>Лифт</dt><dd>люлька на цепи сама ездит вверх и вниз с остановками: зайдите на её пол и езжайте к балкончику наверху</dd>
+      <dt>Уровни</dt><dd>выход — в тазу между ногами: с северо-восточного угла на высоте 33 идите по балкону к лифту — он висит прямо под дверью, ждёт вас внизу и поднимает к нише между двумя глыбами. Прошли — строится новая нога, а роботы с каждым уровнем на 15% быстрее и крепче, дальше видят и чаще нападают; чем ближе к выходу, тем они злее</dd>
+      <dt>Красный ключ</dt><dd>большой красный ключ открывает дверь-выход; обычно лежит за запертой дверью</dd>
+      <dt>Ещё</dt><dd>на крыше лифта можно ехать, по его цепи и по проводам ламп — лезть (W); под струёй воды может смыть в сторону; робот, на котором долго стоишь или висишь, может взорваться</dd>
+      <dt>Облака</dt><dd>передние облака бывают разные: на плотном белом можно стоять и ехать, ветреное сдвигает, из тёмного льёт вода</dd>
+      <dt>Три яруса</dt><dd>нога разделена двумя сплошными кольцами-площадками (высота 13 и 23), третий ярус кончается тазом. Сквозь кольцо ведёт только запертая дверь на пути под ним; ключ от неё спрятан на том же ярусе: жёлтый — на ступне с обратной стороны ноги, синий — на нижнем кольце с южной стороны. Часто ключ в ящике — на таком ящике значок ключа; иногда он спрятан в тёмной нише, и взять его можно только изнутри. Подсказка у запертой двери называет сторону и высоту; после четырёх попыток ключ выпадает рядом с дверью. Встали на лифт, который виден сбоку, — мир сам повернётся к его стороне</dd>
+      <dt>Вода</dt><dd>местами уступ на треть ниже соседних, и в углублении стоит вода, как в бассейне — она сбивает пламя, замедляет и мочит героя и роботов. В ящиках в 70% случаев вода (расплёскивается, тушит, остужает взбешённых), в 10% — взрыв. Робот под струёй замедляется, а иногда ржавеет и остаётся медленным навсегда</dd>
+      <dt>Укрытие</dt><dd>в нише держите S — тихо шагнуть на дорожку, роботы проходят сквозь; вышли из выемки — три секунды вас не видят и роботы не мешают пройти: зайдите за спину и жмите F. Первый же удар снимает тень. тёмная выемка в стене. W + Пробел — впрыгнуть в выемку за спиной, в соседней колонке или выше (до двух кубов); S + Пробел — в выемку ниже (до четырёх кубов). Работает и в воздухе. Внутри герой темнеет, роботы его не видят, по нише можно ходить. Пробел — выпрыгнуть вверх, S + Пробел — вниз</dd>
+      <dt>S + Пробел</dt><dd>провалиться сквозь тонкую площадку, трубу или ездящую панель (сквозь кольца и стену — нельзя)</dd>
+      <dt>Экраны и таланты</dt><dd>вдоль пути стоят светящиеся экраны: разбейте — искры, молнии, и в 60% случаев выпадет шестерёнка; из сбитого робота — тоже в 60%. Шестерёнки и таланты — до конца забега. B или значок-шестерёнка слева вверху (на геймпаде — нажать левый стик) — таланты героя, игра на паузе: движение (первый — крюк, без него H не работает), выживание, бой (первый — вырвать шнур, без него F F F на плече не работает). Взяли оружие — рядом появляется его значок: у каждого оружия свои таланты, все его приёмы (выпад, «нож, нож, нога», поток тока, вилка в гнездо, огненный шар…) открываются талантами, плюс усиления. В окне Q / E — переключить вкладку. Тест-режим (T) таланты не открывает, но даёт 40 шестерёнок, чтобы их купить</dd>
+      <dt>Камеры</dt><dd>в углах висят камеры и водят красным лучом туда-сюда, замирая. Попали в луч — она мигает и пищит: успейте выйти. Не успели — тревога, и на вас прыгают три злых робота. После тревоги камера несколько секунд не смотрит.</dd>
+      <dt>Карты смерти</dt><dd>после каждой гибели — три карты: выберите одну, что в игре станет хуже (боты прочнее, темнота, отравленная вода, клон, без прыжков…). Действует до конца забега; новая игра (R) снимает все карты, как и таланты.</dd>
+      <dt>Броня</dt><dd>из каждого второго робота, которого убили вы сами, выпадает стальная пластинка; носить можно до четырёх. Любой урон сначала сбивает пластинку, жизни не тратятся. После гибели броня пропадает</dd>
+      <dt>Огонь</dt><dd>костры-ловушки поджигают сразу, горящие обломки — только если в них постоять. Загорелись — синяя стрелка у героя ведёт к ближайшей струе воды</dd>
+      <dt>Руки Прометея</dt><dd>герой с ними всегда в огне и огня не боится, вода это пламя не сбивает. Рывок (→ → J) — он сам летит огненным шаром вдвое дальше и оставляет на полу огонь. Огненный шар взрывает робота, обломки горят. Пока выдаются только в тест-режиме (T): кулаки горят, каждый удар рукой поджигает робота на шесть секунд, на бегу за руками тянется огонь. Кунай с ними тоже огненный и поджигает. Зажмите J на секунду — вперёд уходит огненный шар. Слот один — или руки, или нож: берёте одно, другое выпадает рядом</dd>
+      <dt>Сердечки</dt><dd>редко лежат на уступах и иногда выпадают из ящиков: плюс одна жизнь</dd>
+      <dt>Нож</dt><dd>лежит в самом начале пути. С ним J — два удара ножом с разворота подряд, на земле и в прыжке; чем чаще бьёте, тем длиннее выпад вперёд. Сидя — прежний удар рукой с клинком в кулаке. Урон почти вдвое выше</dd>
+      <dt>F</dt><dd>уворот. Как только робот решил напасть — прыгнуть на героя, упасть сверху, выстрелить снизу, ударить, ошпарить или выстрелить, — над героем загорается крупная «F» с полоской времени. Нажали до удара — кульбит в сторону, урона нет. Поворот мира (Q / E) в этот момент тоже считается уворотом. Не злоупотребляйте: третий уворот за 6 секунд — робот может поймать героя за шею и ударить об пол (25 → 50 → 75%)</dd>
+      <dt>На голове робота</dt><dd>K — удар ногой в пол: достаётся роботу под вами. Рукой и ножом стоя на роботе бить нельзя</dd>
+      <dt>Голова с плеч</dt><dd>завершающий удар серии или удар в спину с шансом 15% срывает роботу голову: герой одной ногой сносит её, второй отправляет в ближайшего робота</dd>
+      <dt>Таран</dt><dd>лезете или прыгаете вверх рядом с роботом — он может прыгнуть сквозь вас и сбить</dd>
+      <dt>Тени</dt><dd>свист и растущая тень на земле — сверху падает робот, отойдите. Робот, который видит вас с другой площадки, прыгает к вам</dd>
+      <dt>Кольца</dt><dd>оранжевые кольца на стене — дорожка для крюка: H в первое, у кольца героя подбрасывает, сразу H в следующее</dd>
+      <dt>Испытания</dt><dd>над витком бывают площадки с наградой: к ним ведёт вереница ламп (раскачаться — Пробел — схватиться W за следующую) или висячие лестницы</dd>
+      <dt>Облава</dt><dd>на уровень девять минут (счётчик «до облавы»). Не успели — «ПРИКОНЧИТЬ НАРУШИТЕЛЯ»: сверху падают разъярённые роботы, не больше пяти сразу; перебили — падают следующие</dd>
+      <dt>Новый расклад</dt><dd>R — вспышка, и всё начинается заново: уступы, двери, ключ, осколки, роботы и всё остальное на ноге раскладываются по-новому. После гибели расклад остаётся тем же</dd>
+      <dt>Редактор</dt><dd>U → «Открыть в редакторе» — та же карта в редакторе (отдельная страница: вертеть, приближать, открыть/сохранить, «▶ Тест» — назад в игру с этой картой).</dd>
+      <dt>Карты</dt><dd>U — панель карт: сохранить нынешнюю карту в общие под своим названием, сыграть любую из общих. Ctrl+S — сохранить карту в файл к себе. Ctrl+O или перетащить файл в окно — играть карту из файла (она остаётся и после гибели и прохождения; R — снова случайная).</dd>
+      <dt>Y</dt><dd>проверочная. Висишь на плече робота — он прыжками везёт тебя к выходу. Не висишь — включает и выключает режим, где каждый второй удар ногой срывает роботу голову</dd>
+      <dt>T</dt><dd>тест-режим: бессмертие, Сапоги Гермеса и паука, случайное оружие (нож, вилка или Руки Прометея) и 40 шестерёнок на таланты; ещё раз T — выключить</dd>
+      <dt>R · M · I · O · P · U</dt><dd>заново, звук, эта подсказка, список комбо, журнал игры, карты</dd>
+    </dl>
+  </div>
+
+  <div id="touch">
+    <div class="grp">
+      <button data-key="rotL">Q</button><button data-key="up">W</button><button data-key="rotR">E</button>
+      <button data-key="left">←</button><button data-key="sit">S</button><button data-key="right">→</button>
+    </div>
+    <div class="grp">
+      <button data-key="arm">J</button><button data-key="leg">K</button><button data-key="kunai">L</button>
+      <button data-key="jump" style="grid-column: span 2">прыжок</button><button data-key="hook">H</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="start">
+    <div class="card">
+      <h1 class="logo"><img src="tex/Title.png" alt="Gods Robot Killer"></h1>
+      <p>Титан идёт через лес, а вы взбираетесь по нему: от ступни по ноге, через комнаты внутри корпуса — к мозгу в кабине. Лестница упёрлась в угол — поверните мир.</p>
+      <dl class="keys">
+        <dt>A / D, Пробел</dt><dd>движение и прыжок</dd>
+        <dt>Q / E</dt><dd>поворот мира</dd>
+        <dt>J · K · L</dt><dd>удар рукой, ногой, бросок куная</dd>
+      </dl>
+      <div style="text-align:center">
+      <button class="pbtn" id="startBtn" disabled aria-label="Начать">Загрузка…</button>
+      <button class="pbtn" id="exitBtn" aria-label="Выход">Выход</button>
+      </div>
+      <div style="text-align:center;margin-top:8px"><button id="startEdBtn" type="button">Редактор карт</button></div>
+      <p id="exitMsg" hidden style="text-align:center;margin:6px 0 0">Браузер не даёт игре закрыть вкладку — закройте её сами. В скачиваемой версии кнопка закроет игру.</p>
+    </div>
+  </div>
+
+  <div id="banner" hidden>Уровень пройден</div>
+</div>
+
+<script src="data.js?v=313"></script>
+<script src="core.js?v=313"></script>
+<script src="game.js?v=313"></script>

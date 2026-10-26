@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Редактор GRK</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=PT+Mono&display=swap">
+<style>
+/* Редактор Gods Robot Killer: вид титана — на весь экран (то же ядро, что в игре), поверх — тонкие панели в цветах интерфейса игры. */
+:root {
+  color-scheme: dark;
+  --ink: #06121a; --panel: rgba(6, 18, 26, 0.86); --panel2: rgba(8, 16, 24, 0.95);
+  --paper: #e6f2f4; --teal: #368a8e; --ember: #e0702e; --dusk: #8e245d; --line: rgba(230, 242, 244, 0.22);
+  --display: "Russo One", "Arial Black", Impact, sans-serif; --mono: "PT Mono", "Consolas", "Menlo", monospace;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html, body { height: 100%; margin: 0; }
+body { background: var(--ink); color: var(--paper); font-family: var(--mono); font-size: 14px; overflow: hidden; }
+#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; image-rendering: pixelated; image-rendering: crisp-edges; cursor: grab; }
+#game:active { cursor: grabbing; }
+button { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.6); border: 1px solid var(--line); padding: 5px 11px; cursor: pointer; white-space: nowrap; }
+button:hover:not(:disabled) { border-color: var(--ember); }
+button:disabled { opacity: 0.5; cursor: progress; }
+button.act { border-color: var(--ember); color: var(--ember); }
+button.go { font-family: var(--display); letter-spacing: 0.05em; color: var(--ink); background: var(--ember); border-color: var(--ember); box-shadow: 3px 3px 0 var(--ink); }
+button.go:hover { background: #f08a48; }
+#edTop { position: fixed; left: 0; right: 0; top: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 3; }
+#edTop .logo { font-family: var(--display); font-size: 15px; letter-spacing: 0.08em; color: var(--ember); white-space: nowrap; }
+#edTop .logo small { color: var(--teal); font-size: 11px; margin-left: 6px; letter-spacing: 0.12em; }
+#edTop .map { display: flex; flex-direction: column; min-width: 0; margin-right: 6px; }
+#edName { font-family: var(--display); font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+#edSeed { font-size: 11px; opacity: 0.7; }
+#edTop .grp { display: flex; gap: 6px; flex-wrap: wrap; }
+#edTop .grow { flex: 1 1 0; }
+#edSpots { position: fixed; left: 16px; top: 72px; display: flex; flex-direction: column; gap: 4px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 2; padding: 8px; background: var(--panel); border: 1px solid var(--line); width: 150px; }
+#edSpots .edh, #edShared h2 { font-family: var(--display); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin: 8px 0 2px; }
+#edSpots button { text-align: left; padding: 4px 8px; }
+#edSpots button.room { font-size: 12px; }
+#edSpots::before { content: 'Куда смотреть'; font-family: var(--display); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin-bottom: 2px; }
+#edBottom { position: fixed; left: 0; right: 0; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; padding: 7px 16px; background: var(--panel); border-top: 1px solid var(--line); z-index: 3; font-size: 12px; }
+#edTools { display: flex; gap: 2px; }
+#edTools button { padding: 3px 10px; font-size: 12px; }
+#edTools button.soon { opacity: 0.5; }
+#edTools button.soon::after { content: ' · скоро'; font-size: 10px; }
+.stat b { font-family: var(--display); font-weight: 400; color: var(--ember); margin-left: 5px; }
+#edBottom .hint { flex: 1 1 260px; opacity: 0.7; text-align: right; min-width: 0; }
+#edShared { position: fixed; right: 16px; top: 72px; width: min(440px, calc(100% - 32px)); max-height: calc(100% - 140px); overflow-y: auto; background: var(--panel2); border: 1px solid var(--line); padding: 10px 12px; z-index: 4; }
+#edShared h2:first-child { margin-top: 0; }
+#edShared p { margin: 4px 0 8px; opacity: 0.85; line-height: 1.45; }
+#edShared .row { display: flex; gap: 8px; margin: 6px 0 10px; flex-wrap: wrap; }
+#edShared input { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 5px 8px; flex: 1 1 180px; min-width: 0; }
+#edShared .mrow { display: flex; gap: 8px; align-items: center; padding: 5px 0; border-top: 1px solid var(--line); flex-wrap: wrap; }
+#edShared .mname { color: var(--ember); overflow-wrap: anywhere; }
+#edShared .minfo { flex: 1 1 140px; opacity: 0.75; font-size: 12px; }
+#edOver { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; image-rendering: pixelated; z-index: 1; }
+#edTop .tools { display: flex; gap: 0; }
+#edTop .tools button + button { border-left: 0; }
+#edDirty { font-size: 11px; color: var(--ember); }
+#edLib { position: fixed; right: 16px; top: 72px; width: 196px; max-height: calc(100% - 140px); overflow-y: auto; z-index: 2; padding: 8px; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+#edLib .edh { font-family: var(--display); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin: 8px 0 2px; }
+#edLib .edh:first-child { margin-top: 0; }
+#edUnits { position: fixed; left: 16px; right: 16px; top: 64px; bottom: 52px; z-index: 6; display: grid; grid-template-columns: 200px minmax(0, 1fr) 262px; gap: 8px; background: var(--panel2); border: 1px solid var(--line); padding: 8px; }
+#edUnits[hidden] { display: none; }
+#edUnits .edh { font-family: var(--display); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin: 6px 0 2px; }
+#edUnits .row { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+#edUnits .lbl { font-size: 11px; opacity: 0.7; margin-right: 4px; }
+.eunL { overflow-y: auto; display: flex; flex-direction: column; min-height: 0; }
+#eunList { display: flex; flex-direction: column; gap: 2px; }
+#eunList button { text-align: left; font-size: 12px; padding: 3px 6px; }
+.eunM { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
+.eunTop { display: flex; gap: 10px; align-items: center; flex-wrap: nowrap; font-size: 12px; white-space: nowrap; min-width: 0; } .eunTop #eunInfo { overflow: hidden; text-overflow: ellipsis; min-width: 0; } .eunTop #eunName { overflow: hidden; text-overflow: ellipsis; min-width: 0; } .eunTop b { color: var(--ember); font-weight: 400; } .eunTop span { opacity: 0.75; }
+.eunStage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; background: #0b161d; border: 1px solid var(--line); overflow: hidden; }
+#eunCv { image-rendering: pixelated; cursor: crosshair; }
+#eunFrames { display: flex; gap: 4px; overflow-x: auto; padding-bottom: 2px; min-height: 92px; }
+#eunFrames .eunf { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 3px; min-width: 56px; font-size: 11px; }
+#eunFrames .eunf canvas { image-rendering: pixelated; background: #22313a; max-height: 64px; }
+#eunFrames .eunf.dirty span { color: #ffce46; }
+.eunR { display: flex; flex-direction: column; gap: 6px; overflow-y: auto; min-height: 0; }
+#eunPv { width: 100%; height: auto; image-rendering: pixelated; border: 1px solid var(--line); }
+.eunsl { display: flex; align-items: center; gap: 4px; font-size: 11px; flex: 1; } .eunsl input { flex: 1; min-width: 0; } .eunsl b { font-weight: 400; color: var(--ember); min-width: 34px; text-align: right; }
+#eunPal { display: grid; grid-template-columns: repeat(12, 1fr); gap: 1px; }
+.eunBar { display: flex; gap: 3px; align-items: center; flex-wrap: wrap; } .eunBar i { width: 1px; height: 20px; background: var(--line); margin: 0 4px; } .eunBar button { padding: 3px 8px; font-size: 12px; }
+.eunFr { display: flex; flex-direction: column; gap: 4px; } .eunFrB { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; } .eunFrB button { font-size: 12px; padding: 3px 8px; }
+.eundur { font-size: 12px; margin-left: 8px; white-space: nowrap; } #eunDur { width: 64px; font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 2px 4px; }
+#eunFrames .eunf { cursor: grab; border: 1px solid var(--line); user-select: none; } #eunFrames .eunf.act { border-color: var(--ember); } #eunFrames .eunf.drag { opacity: 0.4; }
+#eunFrames .eunf.dropL { box-shadow: -4px 0 0 #ffce46; } #eunFrames .eunf.dropR { box-shadow: 4px 0 0 #ffce46; }
+.eunColor { display: flex; gap: 4px; align-items: flex-start; } .eunColor canvas { border: 1px solid var(--line); cursor: crosshair; } #eunSV { width: 150px; height: 110px; }
+.eunFB { position: relative; width: 44px; height: 110px; } #eunFg, #eunBg { position: absolute; width: 30px; height: 30px; padding: 0; border: 2px solid #e6f2f4; }
+#eunFg { left: 0; top: 0; z-index: 2; } #eunBg { left: 12px; top: 14px; } #eunFg.none, #eunBg.none { background-image: linear-gradient(45deg, #556 25%, transparent 25%, transparent 75%, #556 75%), linear-gradient(45deg, #556 25%, #2a3a42 25%, #2a3a42 75%, #556 75%) !important; background-size: 8px 8px; background-position: 0 0, 4px 4px; }
+#eunSwap { position: absolute; left: 0; top: 52px; padding: 1px 6px; font-size: 12px; }
+#eunHex { width: 72px; font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 2px 4px; } .eunv { font-weight: 400; color: var(--ember); font-size: 12px; }
+.eunTabs button { font-size: 11px; padding: 2px 8px; } #eunPal .eunc.add { color: var(--paper); background: rgba(6,18,26,0.75) !important; font-size: 12px; line-height: 1; }
+#eunPal .eunc { height: 18px; }
+#eunNew { margin-bottom: 4px; }
+#edAsk { position: fixed; inset: 0; z-index: 20; background: rgba(3, 9, 13, 0.72); display: flex; align-items: center; justify-content: center; padding: 16px; } #edAsk[hidden] { display: none; }
+#edAsk .eiBox { background: var(--panel2); border: 1px solid var(--ember); padding: 14px 16px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 10px; } #edAsk p { margin: 0; white-space: pre-line; }
+#edAskIn { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.9); border: 1px solid var(--line); padding: 6px 8px; } #edAskIn[hidden] { display: none; } #edAskBtns { display: flex; gap: 6px; justify-content: flex-end; flex-wrap: wrap; }
+#eunFrom { position: fixed; inset: 0; z-index: 11; background: rgba(3, 9, 13, 0.72); display: flex; align-items: safe center; justify-content: center; padding: 16px; }
+#eunFrom[hidden] { display: none; } #eunFrom .eiBox { background: var(--panel2); border: 1px solid var(--ember); padding: 14px 16px; width: min(760px, 100%); display: flex; flex-direction: column; gap: 10px; max-height: 90vh; }
+#eunFrom h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); }
+#eunFrom .eiRow { gap: 6px; } #eunFrom select { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.9); border: 1px solid var(--line); padding: 4px; } #eunFrom .eiRow { display: flex; justify-content: flex-end; }
+#eunFromFrames { display: flex; gap: 6px; flex-wrap: wrap; overflow-y: auto; } #eunFromFrames .eunf { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px; font-size: 11px; } #eunFromFrames canvas { image-rendering: pixelated; background: #22313a; }
+#eunPal .eunc { height: 20px; padding: 0; border: 1px solid rgba(0,0,0,0.5); min-width: 0; } #eunPal .eunc.act { outline: 2px solid #fff; outline-offset: -2px; }
+#eunCol { width: 40px; height: 26px; padding: 0; border: 1px solid var(--line); background: none; }
+.eunsave { margin-top: auto; justify-content: space-between; }
+@media (max-width: 900px) { #edUnits { grid-template-columns: 1fr; overflow-y: auto; } .eunStage { min-height: 300px; } }
+#edTitan { position: fixed; right: 16px; top: 72px; width: 210px; z-index: 2; padding: 8px; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; max-height: calc(100vh - 150px); overflow-y: auto; }
+#edTitan[hidden] { display: none; }
+#edTitan .edh { font-family: var(--display); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin: 4px 0 0; }
+#edTitan .row { display: flex; gap: 4px; flex-wrap: wrap; }
+#edTitan .etsz { display: grid; grid-template-columns: 1fr 28px 34px 28px; gap: 4px; align-items: center; font-size: 12px; }
+#edTitan #etSelSz .etsz { grid-template-columns: 1fr 28px 28px; }
+#edTitan .etsz b { text-align: center; color: var(--ember); font-weight: 400; }
+#edTitan .etsel { border: 1px solid var(--ember); padding: 6px; display: flex; flex-direction: column; gap: 5px; }
+#edTitan #etSelName { color: var(--ember); }
+#edTitan .lbl { font-size: 11px; opacity: 0.75; }
+#edTitan .etl { flex-wrap: nowrap; }
+#edTitan .etl button[data-etlib] { flex: 1; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#edTitan .etpath { flex: 1; border-color: #ffce46; color: #ffce46; }
+#edTitan .etpath.act { background: rgba(255, 206, 70, 0.15); }
+#edTitan .note { font-size: 11px; opacity: 0.6; line-height: 1.4; margin: 4px 0 0; }
+#edCubes { position: fixed; right: 16px; top: 72px; width: 196px; z-index: 2; padding: 8px; background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; gap: 6px; }
+#edCubes .edh { font-family: var(--display); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--teal); margin: 4px 0 0; }
+#edCubes .row { display: flex; gap: 4px; flex-wrap: wrap; }
+#edCubes .offv { font-size: 12px; color: var(--ember); }
+#edCubes .note { font-size: 11px; opacity: 0.6; line-height: 1.4; margin: 4px 0 0; }
+#edLibList { display: flex; flex-direction: column; gap: 3px; }
+#edLibList button { display: flex; justify-content: space-between; align-items: center; text-align: left; padding: 4px 8px; font-size: 13px; }
+#edLibList .cnt { font-style: normal; opacity: 0.55; font-size: 11px; }
+#edSel { border: 1px solid var(--ember); padding: 6px 8px; display: flex; flex-direction: column; gap: 5px; }
+#edSelName { color: var(--ember); }
+#edSel .warn { color: #ff9a8a; }
+#edSelPos { font-size: 11px; opacity: 0.75; }
+#edSel .row, #edLib .row { display: flex; gap: 4px; flex-wrap: wrap; }
+#edLib .note { font-size: 11px; opacity: 0.6; line-height: 1.4; margin: 6px 0 0; }
+#edCompass { position: fixed; right: 228px; bottom: 52px; z-index: 3; display: grid; grid-template-columns: auto auto auto; grid-template-rows: auto auto auto; gap: 2px; align-items: center; justify-items: center; padding: 6px; background: var(--panel); border: 1px solid var(--line); }
+#edCompass button { padding: 2px 7px; font-size: 11px; }
+#edCompass .n { grid-column: 2; grid-row: 1; } #edCompass .w { grid-column: 1; grid-row: 2; } #edCompass .e { grid-column: 3; grid-row: 2; } #edCompass .s { grid-column: 2; grid-row: 3; }
+#edCompass .c { grid-column: 2; grid-row: 2; color: var(--teal); font-size: 16px; }
+@media (max-width: 760px) { #edCompass { right: 16px; bottom: auto; top: 120px; } }
+#edLib .imp { border-color: var(--ember); color: var(--ember); text-align: left; }
+#edCard, #edPaint { position: fixed; inset: 0; z-index: 9; background: rgba(3, 9, 13, 0.72); display: flex; align-items: safe center; justify-content: center; padding: 16px; overflow-y: auto; }
+#edPaint { z-index: 10; }
+#edCard .eiBox, #edPaint .eiBox { background: var(--panel2); border: 1px solid var(--ember); padding: 14px 16px; width: min(680px, 100%); display: flex; flex-direction: column; gap: 10px; }
+#edCard h2, #edPaint h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); }
+#edCard .eiRow, #edPaint .eiRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#edCard .eiRow.end, #edPaint .eiRow.end { justify-content: flex-end; }
+#edCard .ecTop { display: flex; gap: 12px; flex-wrap: wrap; }
+#edCard canvas { border: 1px solid var(--line); image-rendering: pixelated; max-width: 100%; }
+#edCard .ecSide { flex: 1 1 220px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#edCard input[type=text] { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 5px 8px; }
+#edCard .ecBeh { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; grid-column: 1 / -1; }
+#edCard .ecBeh span { min-width: 92px; color: var(--muted, #9fb3bb); }
+#edCard .ecLoot { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 4px; }
+#edCard .ecLoot .lbl { font-size: 12px; opacity: 0.8; }
+#edSel .eloot { display: flex; flex-direction: column; gap: 2px; }
+#edSel .eloot label { display: grid; grid-template-columns: 74px 1fr 38px; gap: 4px; align-items: center; font-size: 12px; }
+#edSel .eloot input { width: 100%; min-width: 0; }
+#edSel .eloot b { font-weight: 400; color: var(--ember); font-size: 11px; text-align: right; }
+#edCard .ecBehT { grid-column: 1 / -1; font-size: 12px; color: var(--teal); }
+#edCard .eiGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 14px; }
+#edCard .eiGrid label { font-size: 12px; display: flex; align-items: center; gap: 6px; justify-content: space-between; }
+#edCard .eiGrid input { flex: 1 1 auto; min-width: 0; }
+#edCard .eiGrid b { font-weight: 400; color: var(--ember); min-width: 64px; text-align: right; }
+#edCard .eiInfo, #edPaint .eiInfo { margin: 0; font-size: 12px; opacity: 0.8; }
+#epWrap { display: flex; justify-content: center; background: #0b151b; border: 1px solid var(--line); padding: 4px; max-height: 480px; overflow: auto; }
+#epCv { image-rendering: pixelated; touch-action: none; }
+#epPal { display: flex; flex-wrap: wrap; gap: 3px; }
+#epPal .sw { width: 20px; height: 20px; padding: 0; border: 1px solid rgba(0,0,0,0.6); }
+#epPal .sw:hover { outline: 2px solid var(--ember); }
+#epPal .sep { width: 100%; height: 0; }
+#edPaint .cur { width: 26px; height: 26px; border: 2px solid var(--paper); display: inline-block; margin-left: 6px; }
+#edPaint .own { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+#edPaint .own input { width: 32px; height: 24px; padding: 0; border: 0; background: none; }
+#edLib .urow { display: flex; gap: 3px; }
+#edLib .urow button[data-lib] { flex: 1 1 auto; min-width: 0; }
+#edLib .ued { padding: 4px 7px; }
+#edSel .ucopy { display: flex; flex-direction: column; gap: 4px; border-top: 1px solid var(--line); padding-top: 5px; }
+#edSel .egrpv { image-rendering: pixelated; background: #22313a; } #edSel .egrall { display: grid; grid-template-columns: repeat(5, 1fr); gap: 2px; max-height: 220px; overflow-y: auto; } #edSel .egrall button { padding: 2px; display: flex; align-items: center; justify-content: center; } #edSel .egrall canvas { image-rendering: pixelated; }
+#edSel .ucopy .lbl { font-size: 11px; opacity: 0.7; }
+#edSel .ucopy span:not(.lbl) { font-size: 12px; color: var(--ember); min-width: 34px; text-align: center; align-self: center; }
+#edImport { position: fixed; inset: 0; z-index: 8; background: rgba(3, 9, 13, 0.72); display: flex; align-items: safe center; justify-content: center; padding: 16px; overflow-y: auto; }
+#edImport .eiBox { background: var(--panel2); border: 1px solid var(--ember); padding: 14px 16px; width: min(680px, 100%); display: flex; flex-direction: column; gap: 10px; }
+#edImport h2 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 13px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--teal); }
+#edImport .eiCols { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+#edImport figure { margin: 0; display: flex; flex-direction: column; gap: 4px; align-items: center; }
+#edImport canvas { width: 300px; max-width: 100%; height: auto; border: 1px solid var(--line); image-rendering: pixelated; }
+#edImport figcaption { font-size: 11px; opacity: 0.7; }
+#edImport .eiInfo { margin: 0; font-size: 12px; opacity: 0.8; min-height: 1.3em; }
+#edImport .eiRow { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+#edImport .eiRow.end { justify-content: flex-end; }
+#edImport .lbl { font-size: 12px; opacity: 0.7; margin-right: 2px; }
+#edImport input[type=text] { font: inherit; color: inherit; background: rgba(6, 18, 26, 0.75); border: 1px solid var(--line); padding: 5px 8px; flex: 1 1 160px; min-width: 0; }
+#edImport label { font-size: 12px; display: flex; align-items: center; gap: 6px; }
+#edImport .eiGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 14px; }
+#edImport .eiGrid label { justify-content: space-between; }
+#edImport .eiGrid input { flex: 1 1 auto; min-width: 0; }
+#edImport .eiGrid b { font-weight: 400; color: var(--ember); min-width: 64px; text-align: right; }
+#edMsg { position: fixed; left: 50%; top: 84px; transform: translate(-50%, -6px); max-width: calc(100% - 32px); background: var(--panel2); border: 1px solid var(--ember); padding: 7px 14px; opacity: 0; transition: opacity 0.15s, transform 0.15s; pointer-events: none; z-index: 5; text-align: center; }
+#edMsg.show { opacity: 1; transform: translate(-50%, 0); }
+#edLoading { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: var(--ink); z-index: 9; font-family: var(--display); letter-spacing: 0.08em; color: var(--teal); }
+@media (max-width: 760px) { #edSpots { top: auto; bottom: 48px; flex-direction: row; flex-wrap: wrap; width: auto; right: 16px; max-height: 30vh; } #edSpots::before { width: 100%; } #edBottom .hint { display: none; } }
+</style>
+</head>
+<body>
+<canvas id="game" tabindex="0" aria-label="Титан"></canvas>
+<canvas id="edOver" aria-hidden="true"></canvas>
+
+<div id="edTop">
+  <div class="logo">GRK<small>РЕДАКТОР</small></div>
+  <div class="map"><span id="edName">—</span><span><span id="edSeed"></span> <span id="edDirty" hidden>● не сохранено</span></span></div>
+  <div class="grp">
+    <button id="edNew" type="button" title="Новая случайная карта">Новая</button>
+    <button id="edBySeed" type="button" title="Карта по номеру">По номеру…</button>
+    <button id="edOpen" type="button" title="Ctrl+O, или перетащите файл в окно">Открыть файл</button>
+    <button id="edSave" type="button" title="Ctrl+S">Сохранить файл</button>
+    <button id="edSharedBtn" type="button">Общие карты</button>
+  </div>
+  <div class="grow"></div>
+  <div class="grp">
+    <button id="edTurnL" type="button" title="Q">⟲ Q</button>
+    <button id="edTurnR" type="button" title="E">E ⟳</button>
+    <button id="edGame" type="button">Игра</button>
+    <button id="edTest" class="go" type="button" title="F5">▶ Тест</button>
+  </div>
+</div>
+
+<div id="edSpots"></div>
+
+<div id="edLib">
+  <div class="edh">Выбрано</div>
+  <div id="edSel" hidden><span id="edSelName"></span><span id="edSelPos"></span><div class="row"><button id="edSelDel" type="button" title="Delete">Удалить</button><button id="edSelDup" type="button" title="Ctrl+D">Копия</button></div>
+    <div id="edSelLoot" class="ucopy" hidden><span class="lbl">что выпадает из ящика</span><span id="elootNote" class="lbl"></span><div id="elootRows" class="eloot"></div><div class="row"><button id="elootReset" type="button">Как обычно</button></div><span class="lbl">внутри предмет:</span><div class="row" id="eciRow"></div></div>
+    <div id="edSelDoor" class="ucopy" hidden><span class="lbl">дверь</span><span id="eddWhere" class="lbl"></span><span id="eddReach" class="lbl"></span><div class="row"><button id="eddReachAll" type="button">Проверить все двери</button></div>
+      <div class="row"><span class="lbl">за дверью — новая комната:</span></div><div class="row"><button id="eddRoomS" type="button">маленькая</button><button id="eddRoomM" type="button">средняя</button><button id="eddRoomL" type="button">большая</button></div>
+      <div class="row"><button id="eddLink" type="button">Связать с дверью…</button><button id="eddClose" type="button">Никуда</button><button id="eddShow" type="button">Показать, куда ведёт</button></div>
+      <div class="row"><span class="lbl">ключ:</span><button id="eddK_none" type="button">нет</button><button id="eddK_any" type="button">любой</button><button id="eddK_y" type="button">жёлтый</button><button id="eddK_b" type="button">синий</button></div><span id="eddKeyNote" class="lbl"></span></div>
+    <div id="edSelKey" class="ucopy" hidden><span class="lbl">ключ · цвет</span><div class="row"><button id="ekK_any" type="button">обычный</button><button id="ekK_y" type="button">жёлтый</button><button id="ekK_b" type="button">синий</button></div></div>
+    <div id="edSelTrap" class="ucopy" hidden><span class="lbl">ловушка · откуда бьёт</span><div class="row"><button id="edrT0" type="button">из пола</button><button id="edrT1" type="button">с потолка</button></div><div class="row"><button id="edrT3" type="button">← из стены</button><button id="edrT2" type="button">из стены →</button></div></div>
+    <div id="edSelSpin" class="ucopy" hidden><span class="lbl">шестерня · куда крутится</span><div class="row"><button id="edrCw" type="button">↻ по часовой</button><button id="edrCcw" type="button">↺ против</button></div><div class="row" id="edrSizeRow"><span class="lbl">размер:</span><button id="edrR0" type="button">малая</button><button id="edrR1" type="button">большая</button><button id="edrR2" type="button">огромная</button><button id="edrR3" type="button">гигантская</button></div></div>
+    <div id="edSelWGear" class="ucopy" hidden><span class="lbl">шестерня в стене · корпус</span><div class="row"><button id="ewgPrev" type="button">◀</button><canvas id="ewgPv" class="egrpv"></canvas><button id="ewgNext" type="button">▶</button><span id="ewgN" class="lbl"></span></div><div class="row"><button id="ewgSide" type="button">Откуда: авто</button></div></div>
+    <div id="edSelGrip" class="ucopy" hidden><span class="lbl">ухват · вид</span><div class="row"><button id="egrPrev" type="button">◀</button><canvas id="egrPv" class="egrpv"></canvas><button id="egrNext" type="button">▶</button><span id="egrN" class="lbl"></span></div><div class="row"><button id="egrFlip" type="button">↔ Отразить</button><button id="egrMore" type="button">Все виды…</button></div><div id="egrAll" class="egrall" hidden></div></div>
+    <div id="edSelPipe" class="ucopy" hidden><span class="lbl">труба · тяни за квадратики на концах — длиннее/короче</span><div class="row"><button id="epiClimb" type="button" title="по вертикальным кускам можно лезть">Лезть</button><button id="epiWater" type="button" title="из конца течёт вода">Вода</button></div></div>
+    <div id="edSelLadder" class="ucopy" hidden><span class="lbl">высота лестницы</span><div class="row"><button id="eldDown" type="button" title="ниже на полкуба">▼</button><span id="eldH"></span><button id="eldUp" type="button" title="выше на полкуба">▲</button><button id="eldTop" type="button" title="дотянуть верх до ближайшего уступа рядом">До уступа</button></div></div>
+    <div id="edSelUser" class="ucopy" hidden><span class="lbl">эта копия</span><div class="row"><button id="ecpFlip" type="button" title="отразить">↔</button><button id="ecpSmall" type="button" title="мельче">−</button><span id="ecpScale"></span><button id="ecpBig" type="button" title="крупнее">+</button></div><div class="row"><button id="ecpCool" type="button" title="оттенок">◐−</button><span id="ecpTint"></span><button id="ecpWarm" type="button" title="оттенок">◐+</button><button id="ecpVary" type="button" title="каждая копия чуть другая по тону">разброс</button></div><button id="ecpCard" type="button" title="вид для всех копий на всех картах">✎ Карточка</button></div></div>
+  <div class="row"><button id="edUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="edRedo" type="button" title="Ctrl+Y">↷ Вернуть</button></div>
+  <div class="edh">Библиотека</div>
+  <button id="edImportBtn" type="button" class="imp">＋ Залить картинку</button>
+  <div id="edLibList"></div>
+  <p class="note">Клик по предмету в списке, потом клики по стене — ставит ещё и ещё, каждый раз новый вид. Esc или правая кнопка — хватит.</p>
+</div>
+
+<div id="edUnits" hidden>
+  <div class="eunL"><div class="edh">Анимации</div><div id="eunList"></div></div>
+  <div class="eunM">
+    <div class="eunBar">
+      <button id="eunUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="eunRedo" type="button" title="Ctrl+Y">↷</button><i></i>
+      <button type="button" data-ut="pen" title="B">✎ Карандаш</button><button type="button" data-ut="erase" title="E">Ластик</button><button type="button" data-ut="fill" title="G">Заливка</button><button type="button" data-ut="pick" title="I">Пипетка</button><i></i>
+      <span class="lbl">кисть</span><button type="button" data-us="1">1</button><button type="button" data-us="2">2</button><button type="button" data-us="3">3</button><button type="button" data-us="4">4</button><i></i>
+      <button id="eunOnion" type="button" title="прошлый кадр — красным, следующий — синим">◐ Шелуха</button>
+    </div>
+    <div class="eunTop"><b id="eunName"></b><span id="eunInfo"></span><span style="flex:1"></span><button id="eunReset" type="button">Кадр как было</button><button id="eunClipReset" type="button">Анимация как была</button><button id="eunSave" type="button" class="go">Сохранить</button></div>
+    <div class="eunStage"><canvas id="eunCv"></canvas></div>
+    <div class="eunFr"><div id="eunFrames"></div>
+      <div class="eunFrB"><button id="eunAddE" type="button" title="пустой кадр после текущего">＋ Пустой</button><button id="eunAddC" type="button" title="копия текущего — после него">⧉ Копия</button><button id="eunAddT" type="button" title="черновик кадра между текущим и следующим">◐ Между</button><button id="eunAddF" type="button" title="кадр из любой анимации — копией">⇩ Из другой…</button><button id="eunDel" type="button" title="убрать кадр из анимации">✕ Убрать</button>
+        <label class="eundur">длится <input id="eunDur" type="number" min="10" max="2000" step="10"> мс</label></div></div>
+  </div>
+  <div class="eunR">
+    <button id="eunNew" type="button" class="imp" title="новая — копия той, что открыта, пустая или копия другой">＋ Новая анимация</button>
+    <canvas id="eunPv" width="240" height="170"></canvas>
+    <div class="row"><button id="eunPlay" type="button" title="пробел">❚❚</button><label class="eunsl">скорость<input id="eunSpeed" type="range" min="0.25" max="2" step="0.25" value="1"><b id="eunSpeedv">×1</b></label></div>
+    <div class="edh">Цвет</div>
+    <div class="eunColor">
+      <div class="eunFB"><button id="eunFg" type="button" title="основной — левая кнопка мыши"></button><button id="eunBg" type="button" title="фоновый — правая кнопка мыши (пусто — стирает)"></button><button id="eunSwap" type="button" title="X — поменять местами">⇄</button></div>
+      <canvas id="eunSV" width="150" height="110"></canvas><canvas id="eunHue" width="14" height="110"></canvas><canvas id="eunAl" width="14" height="110" title="прозрачность"></canvas>
+    </div>
+    <div class="row"><span class="lbl">#</span><input id="eunHex" type="text" maxlength="7" spellcheck="false"><span class="lbl">прозр.</span><b id="eunAv" class="eunv"></b></div>
+    <div class="row eunTabs"><button type="button" data-pt="anim">Анимация</button><button type="button" data-pt="db32">DB32</button><button type="button" data-pt="my">Моя</button></div>
+    <div id="eunPal"></div>
+    <div class="edh">Живая линия (шум)</div>
+    <div class="row"><label class="eunsl">сила<input id="eunBoilK" type="range" min="5" max="40" step="5" value="15"></label></div>
+    <div class="row"><button id="eunBoil1" type="button">На кадр</button><button id="eunBoilAll" type="button" title="у каждого кадра свой узор — линия «кипит»">На все кадры</button></div>
+  </div>
+</div>
+<div id="edAsk" hidden><div class="eiBox"><p id="edAskText"></p><input id="edAskIn" type="text" maxlength="60" spellcheck="false"><div id="edAskBtns" class="eiRow end"></div></div></div>
+<div id="eunFrom" hidden><div class="eiBox"><h2>Кадр из другой анимации</h2><p id="eunFromNote" class="lbl"></p><select id="eunFromClip"></select><div id="eunFromFrames"></div><div class="eiRow end"><button id="eunFromX" type="button">Закрыть</button><button id="eunFromAll" type="button" class="go" hidden>Взять всю анимацию</button></div></div></div>
+<div id="edTitan" hidden>
+  <div class="edh">Детали</div>
+  <div class="row etk"><button type="button" data-et="pillar" title="нога, колонна">Столб</button><button type="button" data-et="block" title="бедро, таз, плечо">Блок</button><button type="button" data-et="hull" title="полый — внутри можно комнаты">Корпус</button><button type="button" data-et="beam" title="рука, перемычка">Балка</button><button type="button" data-et="cabin" title="голова, полая">Кабина</button><button type="button" data-et="slab" title="площадка, по ней ходят">Плита</button></div>
+  <div class="row"><button id="etPath" type="button" class="etpath" title="подъём по стене: отметь низ и верх">⤴ Путь: низ → верх</button></div>
+  <div class="row"><button id="etPathTop" type="button" class="etpath" title="подъём от низа до самого верха титана — одним кликом">⤒ Путь до верха</button></div>
+  <div class="edh">Мои детали</div>
+  <div id="etLib"></div>
+  <div class="edh">Размер новой</div>
+  <div class="etsz"><span>ширина</span><button type="button" data-sz="w-">−</button><b id="etSw"></b><button type="button" data-sz="w+">+</button></div>
+  <div class="etsz"><span>высота</span><button type="button" data-sz="h-">−</button><b id="etSh"></b><button type="button" data-sz="h+">+</button></div>
+  <div class="etsz"><span>глубина</span><button type="button" data-sz="d-">−</button><b id="etSd"></b><button type="button" data-sz="d+">+</button></div>
+  <div class="row"><button type="button" data-etmat="core" title="тело титана крупными панелями">Стена</button><button type="button" data-etmat="ledge" title="платформа мелкой плиткой">Уступ</button></div>
+  <div id="etSel" class="etsel" hidden><span id="etSelName"></span><span id="etSelSize" class="lbl"></span>
+    <div class="row"><button id="etDel" type="button" title="Delete">Удалить</button><button id="etDup" type="button" title="Ctrl+D">Копия</button></div>
+    <div class="row"><button id="etFlip" type="button" title="зеркально слева направо">↔ Отразить</button><button id="etSave" type="button" title="сохранить эту деталь — ставить на любой карте">В библиотеку</button></div>
+    <div class="row"><button id="etNear" type="button" title="на куб к нам">▲ к нам</button><button id="etFar" type="button" title="на куб от нас">▼ от нас</button></div>
+    <div id="etSelSz"><div class="etsz"><span>ширина</span><button type="button" data-rs="w-">−</button><button type="button" data-rs="w+">+</button></div><div class="etsz"><span>высота</span><button type="button" data-rs="h-">−</button><button type="button" data-rs="h+">+</button></div><div class="etsz"><span>глубина</span><button type="button" data-rs="d-">−</button><button type="button" data-rs="d+">+</button></div></div>
+  </div>
+  <div class="row"><button id="etUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="etRedo" type="button" title="Ctrl+Y">↷ Вернуть</button></div>
+  <p class="note">Тянуть деталь — двигать (пропсы внутри едут с ней). Нынешний титан тоже из деталей: ступня, голень, бедро, таз, корпус, плечи, кабина.</p>
+</div>
+<div id="edCubes" hidden>
+  <div class="edh">Кубы</div>
+  <div class="row"><button type="button" data-brush="add" title="1">Ставить</button><button type="button" data-brush="del" title="2">Убирать</button></div>
+  <div class="edh">Из чего</div>
+  <div class="row"><button type="button" data-mat="ledge" title="платформа мелкой плиткой — по ней ходят">Уступ</button><button type="button" data-mat="core" title="тело титана крупными панелями">Стена</button></div>
+  <div class="edh">Глубина</div>
+  <div class="row"><button id="edCubesNear" type="button" title="[">◀ к стене</button><button id="edCubesFar" type="button" title="]">от стены ▶</button></div>
+  <span id="edCubesOff" class="offv"></span>
+  <div class="row"><button id="edCubesUndo" type="button" title="Ctrl+Z">↶ Отменить</button><button id="edCubesRedo" type="button" title="Ctrl+Y">↷ Вернуть</button></div>
+  <p class="note">Белый куб — куда встанет, подпись над ним — «вплотную» или «в воздухе». Над стеной куб встаёт перед ней; в воздухе — на том же слое, где ставили последний. Вести с зажатой кнопкой — полосой.<br>Камера: WASD или стрелки, Q/E — поворот.</p>
+</div>
+
+<div id="edShared" hidden>
+  <h2>Общие карты</h2>
+  <div class="row" id="edShareSave" hidden><input id="edShareName" type="text" maxlength="80" placeholder="Название карты" autocomplete="off"><button id="edShareBtn" type="button">Сохранить в общие</button></div>
+  <div id="edList"></div>
+</div>
+
+<div id="edBottom">
+  <div id="edTools"><button type="button" data-tool="props" class="act">Пропсы</button><button type="button" data-tool="cubes">Кубы</button><button type="button" data-tool="titan">Титан</button><button type="button" data-tool="units">Юниты</button><button type="button" data-tool="finish" class="soon">Отделка</button></div>
+  <div class="stat">сторона<b id="edSide">Юг</b></div>
+  <div class="stat">высота<b id="edAlt">0</b></div>
+  <div class="stat">масштаб<b id="edZoom">100%</b></div>
+  <div class="hint" id="edHint">WASD — камера · Q/E или зажать колёсико — поворот · колесо — ближе/дальше · тянуть предмет — двигать · квадратик на конце или Alt+тянуть — длиннее/короче · Delete · Ctrl+Z</div>
+</div>
+
+<div id="edCompass" title="Повернуть титана к стороне (Q/E; средняя кнопка или Alt + тянуть вбок)">
+  <button type="button" data-k="2" class="n">Север</button>
+  <button type="button" data-k="3" class="w">Запад</button><span class="c">⟳</span><button type="button" data-k="1" class="e">Восток</button>
+  <button type="button" data-k="0" class="s">Юг</button>
+</div>
+<div id="edImport" hidden>
+  <div class="eiBox">
+    <h2>Залить картинку в библиотеку</h2>
+    <div class="eiCols">
+      <figure><canvas id="eiSrc" width="300" height="260"></canvas><figcaption>было</figcaption></figure>
+      <figure><canvas id="eiOut" width="300" height="260"></canvas><figcaption>стало — как в игре</figcaption></figure>
+    </div>
+    <p id="eiInfo" class="eiInfo"></p>
+    <div class="eiRow"><button id="eiPick" type="button">Выбрать картинку</button><input id="eiName" type="text" maxlength="40" placeholder="Название" autocomplete="off"></div>
+    <div class="eiRow"><span class="lbl">Куда</span><button type="button" data-sec="wall">На стену</button><button type="button" data-sec="hang">Висячее</button><button type="button" data-sec="stand">На пол</button>
+      <label id="eiPalRow"><input id="eiPal" type="checkbox" checked> в палитру стен</label></div>
+    <div class="eiGrid">
+      <label>Фон<input id="eiTol" type="range" min="5" max="120" value="40"><b id="eiTolv"></b></label>
+      <label>Родной пиксель<input id="eiK" type="range" min="1" max="32" value="1"><b id="eiKv"></b></label>
+      <label>Размер<input id="eiCw" type="range" min="0.3" max="6" step="0.1" value="1"><b id="eiCwv"></b></label>
+      <label>Цветов<input id="eiCol" type="range" min="4" max="32" value="24"><b id="eiColv"></b></label>
+    </div>
+    <div class="eiRow end"><button id="eiPaint" type="button">✎ Дорисовать</button><span style="flex:1"></span><button id="eiCancel" type="button">Отмена</button><button id="eiSave" class="go" type="button">В библиотеку</button></div>
+  </div>
+</div>
+<div id="edCard" hidden>
+  <div class="eiBox">
+    <h2>Карточка предмета — для всех копий</h2>
+    <div class="ecTop"><canvas id="ecPrev" width="260" height="220"></canvas>
+      <div class="ecSide"><input id="ecName" type="text" maxlength="40" placeholder="Название" autocomplete="off">
+        <div class="eiRow"><button type="button" data-sec="wall">На стену</button><button type="button" data-sec="hang">Висячее</button><button type="button" data-sec="stand">На пол</button></div>
+        <p id="ecInfo" class="eiInfo"></p>
+        <div class="eiRow"><button id="ecPaint" type="button">✎ Дорисовать</button><button id="ecReset" type="button">Цвет как был</button></div></div></div>
+    <div class="eiGrid">
+      <label>Оттенок<input id="ecHue" type="range" min="-180" max="180" step="5" value="0"><b id="ecHuev"></b></label>
+      <label>Яркость<input id="ecBri" type="range" min="-60" max="60" step="2" value="0"><b id="ecBriv"></b></label>
+      <label>Контраст<input id="ecCon" type="range" min="-60" max="80" step="2" value="0"><b id="ecConv"></b></label>
+      <label>Насыщенность<input id="ecSat" type="range" min="-100" max="100" step="5" value="0"><b id="ecSatv"></b></label>
+      <label>Размер<input id="ecCw" type="range" min="0.3" max="6" step="0.1" value="1"><b id="ecCwv"></b></label>
+      <label>Свечение<input id="ecGlow" type="range" min="0" max="1" step="0.1" value="0"><b id="ecGlowv"></b></label>
+      <label id="ecSwayRow">Качание<input id="ecSway" type="range" min="0" max="1" step="0.1" value="0"><b id="ecSwayv"></b></label>
+      <div class="ecBeh"><span>В игре</span><button id="ecSolid" type="button" title="Верх картинки — пол: можно встать (низкое — зайти, высокое — запрыгнуть)">Можно встать</button><button id="ecGrab" type="button" title="Крюк (H) цепляется за середину предмета, как за кольцо">Схватиться крюком</button></div>
+      <div class="ecBeh"><span>Разбивается</span><button data-hp="0" type="button">нет</button><button data-hp="1" type="button">с 1 удара</button><button data-hp="2" type="button">с 2</button><button data-hp="3" type="button">с 3</button></div>
+      <div id="ecBehav" class="ecBehT"></div>
+      <div id="ecLoot" class="ecLoot" hidden><span class="lbl">Что выпадает, когда разбит (шанс каждого)</span><div id="ecLootRows" class="eiGrid"></div></div>
+    </div>
+    <div class="eiRow end"><button id="ecRemove" type="button">Убрать из библиотеки</button><span style="flex:1"></span><button id="ecCancel" type="button">Отмена</button><button id="ecSave" class="go" type="button">Сохранить — обновить везде</button></div>
+  </div>
+</div>
+
+<div id="edPaint" hidden>
+  <div class="eiBox">
+    <h2 id="epTitle">Дорисовать</h2>
+    <div class="eiRow"><button type="button" data-tool="pen" title="B">✎ Карандаш</button><button type="button" data-tool="erase" title="E">Ластик</button><button type="button" data-tool="pick" title="I">Пипетка</button><button type="button" data-tool="fill" title="G">Заливка</button>
+      <span class="cur" id="epCur" title="текущий цвет"></span><label class="own">свой<input id="epOwn" type="color" value="#807078"></label></div>
+    <div id="epWrap"><canvas id="epCv"></canvas></div>
+    <div id="epPal"></div>
+    <div class="eiRow"><button id="epFlip" type="button">↔ Отразить</button><button type="button" data-shift="-1,0">←</button><button type="button" data-shift="1,0">→</button><button type="button" data-shift="0,-1">↑</button><button type="button" data-shift="0,1">↓</button>
+      <button id="epPad" type="button">Поле +2</button><button id="epCrop" type="button">Обрезать</button><button id="epUndo" type="button">↶</button><button id="epRedo" type="button">↷</button><span id="epInfo" class="eiInfo"></span></div>
+    <div class="eiRow end"><button id="epCancel" type="button">Отмена</button><button id="epOk" class="go" type="button">Готово</button></div>
+  </div>
+</div>
+
+<div id="edMsg"></div>
+<div id="edLoading">Загрузка…</div>
+
+<script src="data.js?v=313"></script>
+<script src="core.js?v=313"></script>
+<script src="editor.js?v=313"></script>
+</body>
+</html>
